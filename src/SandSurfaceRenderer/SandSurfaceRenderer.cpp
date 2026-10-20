@@ -233,6 +233,7 @@ void SandSurfaceRenderer::update(){
 }
 
 void SandSurfaceRenderer::drawMainWindow(float x, float y, float width, float height){
+    ofSetColor(255, 255, 255);
     if (kinectProjector && kinectProjector->getIsInverted())
     {
         ofPushMatrix();
@@ -258,6 +259,7 @@ void SandSurfaceRenderer::drawMainWindow(float x, float y, float width, float he
 }
 
 void SandSurfaceRenderer::drawProjectorWindow(){
+    ofSetColor(255, 255, 255);
 	fboProjWindow.draw(0,0);
 }
 

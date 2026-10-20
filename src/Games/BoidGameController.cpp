@@ -237,7 +237,8 @@ void CBoidGameController::DrawScoresOnFBO()
 	double sW = scoreFontSmall.stringWidth(P1ScoreStr);
 	double sH = scoreFontSmall.stringHeight(P1ScoreStr);
 
-	double sx = projROI.x + (projROI.width / 4 - sW / 2);
+	double cp1 = getOrientedX(projROI.x + projROI.width / 4);
+	double sx = cp1 - sW / 2;
 	double sy = projROI.y + 70;
 
 	std::string P2ScoreStr = 
@@ -248,7 +249,8 @@ void CBoidGameController::DrawScoresOnFBO()
 	double sW2 = scoreFontSmall.stringWidth(P2ScoreStr);
 	double sH2 = scoreFontSmall.stringHeight(P2ScoreStr);
 
-	double sx2 = projROI.x + (3 * projROI.width / 4 - sW2 / 2);
+	double cp2 = getOrientedX(projROI.x + 3 * projROI.width / 4);
+	double sx2 = cp2 - sW2 / 2;
 	double sy2 = projROI.y + 70;
 
 	scoreFontSmall.drawString(P1ScoreStr, sx, sy);
@@ -258,11 +260,12 @@ void CBoidGameController::DrawScoresOnFBO()
 	double ymid = kinectROI.y + kinectROI.height / 2;
 
 	ofVec2f projMid = kinectProjector->kinectCoordToProjCoord(xmid, ymid);
+	float orientedMidX = getOrientedX(projMid.x);
 
 	ofSetColor(0, 255, 255);
 	ofSetLineWidth(3.0f);
-	ofVec2f ps(projMid.x, projROI.getMinY());
-	ofVec2f pe(projMid.x, projROI.getMaxY());
+	ofVec2f ps(orientedMidX, projROI.getMinY());
+	ofVec2f pe(orientedMidX, projROI.getMaxY());
 
 	ofDrawLine(ps, pe);
 }
@@ -285,11 +288,13 @@ void CBoidGameController::DrawFinalScoresOnFBO()
 
 	if (Player1Score > Player2Score)
 	{
-		sx = projROI.x + (projROI.width / 4 - sW / 2);
+		double cp = getOrientedX(projROI.x + projROI.width / 4);
+		sx = cp - sW / 2;
 	}
 	else
 	{
-		sx = projROI.x + (3 * projROI.width / 4 - sW / 2);
+		double cp = getOrientedX(projROI.x + 3 * projROI.width / 4);
+		sx = cp - sW / 2;
 	}
 
 	scoreFont.drawString(scorestr, sx, sy);
@@ -297,21 +302,24 @@ void CBoidGameController::DrawFinalScoresOnFBO()
 
 void CBoidGameController::drawMainWindow(float x, float y, float width, float height) 
 {
-	if (isInverted())
+	BaseGameController::drawMainWindow(x, y, width, height);
+	gui->draw();
+}
+
+void CBoidGameController::drawPreviewScene(float x, float y, float width, float height)
+{
+	fboVehicles.draw(x, y, width, height);
+}
+
+void CBoidGameController::drawPreviewHUD(float x, float y, float width, float height)
+{
+	eGameState sequence = GameSequence[CurrentGameSequence];
+	if (sequence == GAME_STATE_SHOWSPLASHSCREEN ||
+		sequence == GAME_STATE_PLAYANDSHOWCOUNTDOWN ||
+		sequence == GAME_STATE_SHOWFINALRESULT)
 	{
-		ofPushMatrix();
-		ofTranslate(x + width / 2.0f, y + height / 2.0f);
-		ofRotate(180.0f);
-		fboVehicles.draw(-width / 2.0f, -height / 2.0f, width, height);
-		fboHUD.draw(-width / 2.0f, -height / 2.0f, width, height);
-		ofPopMatrix();
-	}
-	else
-	{
-		fboVehicles.draw(x, y, width, height);
 		fboHUD.draw(x, y, width, height);
 	}
-	gui->draw();
 }
 
 void CBoidGameController::drawScene()

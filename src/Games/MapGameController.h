@@ -76,6 +76,8 @@ class CMapGameController : public BaseGameController
 	protected:
 		virtual void drawScene() override;
 		virtual void drawHUD() override;
+		virtual void drawPreviewScene(float x, float y, float width, float height) override;
+		virtual void drawPreviewHUD(float x, float y, float width, float height) override;
 
 	private:
 		// Get the actual depth image

@@ -248,31 +248,22 @@ void CMapGameController::drawHUD()
 void CMapGameController::drawMainWindow(float x, float y, float width, float height)
 {
 	if (isIdle()) return;
+	BaseGameController::drawMainWindow(x, y, width, height);
+}
 
+void CMapGameController::drawPreviewScene(float x, float y, float width, float height)
+{
 	eGameState sequence = GameSequence[CurrentGameSequence];
+	if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
+	{
+		if (matchResultImage.getWidth() > 0)
+			matchResultImage.draw(x, y, width, height);
+	}
+}
 
-	if (isInverted())
-	{
-		ofPushMatrix();
-		ofTranslate(x + width / 2.0f, y + height / 2.0f);
-		ofRotate(180.0f);
-		if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
-		{
-			if (matchResultImage.getWidth() > 0)
-				matchResultImage.draw(-width / 2.0f, -height / 2.0f, width, height);
-		}
-		fboProjWindow.draw(-width / 2.0f, -height / 2.0f, width, height);
-		ofPopMatrix();
-	}
-	else
-	{
-		if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
-		{
-			if (matchResultImage.getWidth() > 0)
-				matchResultImage.draw(x, y, width, height);
-		}
-		fboProjWindow.draw(x, y, width, height);
-	}
+void CMapGameController::drawPreviewHUD(float x, float y, float width, float height)
+{
+	fboProjWindow.draw(x, y, width, height);
 }
 
 
@@ -922,6 +913,7 @@ bool CMapGameController::ComputeWhereInSequence(int &currentStep, int &totalStep
 
 bool CMapGameController::ConnectedComponentAnalysis()
 {
+	MatchResultContours.clear();
 	std::string iThres = debugBaseDir + "BinaryLandImage.png";
 //	std::string iROI = debugBaseDir + "LandImageROI.txt";
 
@@ -1445,11 +1437,10 @@ bool CMapGameController::MatchMap()
 	double maxDSC = 0;
 	double maxAngle = -1000;
 
-	double searchCenter = isInverted() ? 0.0 : 180.0;
-	MinSearchAngle = searchCenter - 45.0;
-	MaxSearchAngle = searchCenter + 45.0;
+	MinSearchAngle = -180.0;
+	MaxSearchAngle = 180.0;
 
-	// Check rotations
+	// Check rotations across full 360 degrees for robust island detection in any orientation
 	for (double angle = MinSearchAngle; angle <= MaxSearchAngle; angle++)
 	{
 		cv::Mat Irot = cv::Mat::zeros(Itrans.rows, Itrans.cols, Itrans.type());
@@ -1817,6 +1808,8 @@ bool CMapGameController::ComputeProjectorMap()
 
 void CMapGameController::DrawMatchResultContourLines()
 {
+	if (MatchResultContours.empty()) return;
+
 	ofSetColor(255, 0, 0);
 	//for (int i = 0; i < MatchResultContours.size(); i++)
 	//{
@@ -1839,4 +1832,5 @@ void CMapGameController::DrawMatchResultContourLines()
 		ofDrawLine(p1, p2);
 	}
 	ofDrawLine(MatchResultContours[0], MatchResultContours[MatchResultContours.size() - 1]);
+	ofSetColor(255, 255, 255);
 }

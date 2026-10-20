@@ -26,8 +26,22 @@ public:
     virtual ofRectangle getKinectROI() { return kinectROI; }
     virtual void setDebug(bool flag) { debugOn = flag; }
 
-    // Operator screen preview (optional)
-    virtual void drawMainWindow(float x, float y, float w, float h) {}
+    // Operator screen preview template method
+    virtual void drawMainWindow(float x, float y, float w, float h) {
+        // 1. Scene elements (animals, maps) rotate with the sand surface
+        ofPushMatrix();
+        ofTranslate(x + w / 2.0f, y + h / 2.0f);
+        if (isInverted()) {
+            ofRotate(180.0f);
+        }
+        drawPreviewScene(-w / 2.0f, -h / 2.0f, w, h);
+        ofPopMatrix();
+
+        // 2. HUD overlay (text, scores, countdown) is ALWAYS upright for the operator
+        drawPreviewHUD(x, y, w, h);
+
+        ofSetColor(255, 255, 255);
+    }
 
     // Template method for rendering on the projector
     virtual void drawProjectorWindow() {
@@ -43,6 +57,7 @@ public:
                 drawHUD();
             }
         }
+        ofSetColor(255, 255, 255);
     }
 
     // Utility helpers for derived games
@@ -62,9 +77,15 @@ public:
         return isInverted() ? (localAngle + 180.0f) : localAngle;
     }
 
+    float getOrientedX(float x) const {
+        return isInverted() ? (projRes.x - x) : x;
+    }
+
 protected:
     virtual void drawScene() {}
     virtual void drawHUD() {}
+    virtual void drawPreviewScene(float x, float y, float w, float h) {}
+    virtual void drawPreviewHUD(float x, float y, float w, float h) {}
 
     std::shared_ptr<KinectProjector> kinectProjector;
     ofVec2f projRes;

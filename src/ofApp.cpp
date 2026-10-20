@@ -98,6 +98,7 @@ void ofApp::draw()
 
 void ofApp::drawProjWindow(ofEventArgs &args) 
 {
+	ofSetColor(255, 255, 255);
 	if (kinectProjector->GetApplicationState() == KinectProjector::APPLICATION_STATE_RUNNING)
 	{
 		sandSurfaceRenderer->drawProjectorWindow();
