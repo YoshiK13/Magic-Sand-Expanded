@@ -41,9 +41,7 @@ class CBoidGameController : public BaseGameController
 		void setup(std::shared_ptr<KinectProjector> const& k);
 		void update();
 
-		void drawProjectorWindow();
-
-		void drawMainWindow(float x, float y, float width, float height);
+		virtual void drawMainWindow(float x, float y, float width, float height) override;
 
 		// 0: absolute beginner, 1: beginner, 2: medium, 3: expert
 		bool StartGame(int difficulty);
@@ -62,6 +60,10 @@ class CBoidGameController : public BaseGameController
 		void setupGui();
 
 		bool isIdle();
+
+	protected:
+		virtual void drawScene() override;
+		virtual void drawHUD() override;
 
 	private:
 		void onButtonEvent(ofxDatGuiButtonEvent e);
@@ -135,6 +137,7 @@ class CBoidGameController : public BaseGameController
 
 		// FBos
 		ofFbo fboVehicles;
+		ofFbo fboHUD;
 
 		// Animals
 		vector<Fish> fish;

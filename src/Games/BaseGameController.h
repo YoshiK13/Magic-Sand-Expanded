@@ -31,16 +31,17 @@ public:
 
     // Template method for rendering on the projector
     virtual void drawProjectorWindow() {
-        if (isIdle()) return;
         drawScene();
-        if (isInverted()) {
-            ofPushMatrix();
-            ofTranslate(projRes.x, projRes.y);
-            ofRotate(180.0f);
-            drawHUD();
-            ofPopMatrix();
-        } else {
-            drawHUD();
+        if (!isIdle()) {
+            if (isInverted()) {
+                ofPushMatrix();
+                ofTranslate(projRes.x, projRes.y);
+                ofRotate(180.0f);
+                drawHUD();
+                ofPopMatrix();
+            } else {
+                drawHUD();
+            }
         }
     }
 

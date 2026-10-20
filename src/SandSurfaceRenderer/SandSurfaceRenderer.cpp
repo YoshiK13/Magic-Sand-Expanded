@@ -233,7 +233,18 @@ void SandSurfaceRenderer::update(){
 }
 
 void SandSurfaceRenderer::drawMainWindow(float x, float y, float width, float height){
-    fboProjWindow.draw(x, y, width, height);
+    if (kinectProjector && kinectProjector->getIsInverted())
+    {
+        ofPushMatrix();
+        ofTranslate(x + width / 2.0f, y + height / 2.0f);
+        ofRotate(180.0f);
+        fboProjWindow.draw(-width / 2.0f, -height / 2.0f, width, height);
+        ofPopMatrix();
+    }
+    else
+    {
+        fboProjWindow.draw(x, y, width, height);
+    }
     
     if (displayGui) {
         heightMap.getTexture().draw(gui2->getPosition().x, gui2->getPosition().y+gui2->getHeight(), gui2->getWidth(), 30);

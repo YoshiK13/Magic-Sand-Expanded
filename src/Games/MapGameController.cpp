@@ -198,14 +198,8 @@ void CMapGameController::PlayAndShowCountDown(int resultTime)
 void CMapGameController::DrawScoresOnFBO()
 {
 	fboProjWindow.begin();
+	ofClear(255, 255, 255, 0);
 
-	if (matchResultImage.getWidth() > 0)
-		matchResultImage.draw(0, 0);
-
-	if (doShowMatchResultContourLines)
-	{
-		DrawMatchResultContourLines();
-	}
 	DrawScoreTexts();
 
 	fboProjWindow.end();
@@ -214,52 +208,70 @@ void CMapGameController::DrawScoresOnFBO()
 void CMapGameController::DrawScoreTexts()
 {
 	ofSetColor(10, 30, 200);
+	scoreFont.drawString(ScoreText, 100, 100);
+	scoreFont.drawString(HiScoreText, 100, projRes.y - 100);
+}
+
+void CMapGameController::drawScene()
+{
+	if (isIdle()) return;
+
+	eGameState sequence = GameSequence[CurrentGameSequence];
+	if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
+	{
+		if (matchResultImage.getWidth() > 0)
+			matchResultImage.draw(0, 0);
+
+		if (doShowMatchResultContourLines)
+			DrawMatchResultContourLines();
+	}
+	else if (sequence == GAME_STATE_CHECKFORISLAND)
+	{
+		if (doShowMatchResultContourLines)
+			DrawMatchResultContourLines();
+	}
+}
+
+void CMapGameController::drawHUD()
+{
+	if (isIdle()) return;
+
+	eGameState sequence = GameSequence[CurrentGameSequence];
+	if (ShowScore || sequence == GAME_STATE_SHOWMAPNAME || sequence == GAME_STATE_SHOWSPLASHSCREEN ||
+		sequence == GAME_STATE_PLAYANDSHOWCOUNTDOWN || sequence == GAME_STATE_CHECKFORISLAND ||
+		sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
+	{
+		fboProjWindow.draw(0, 0);
+	}
+}
+
+void CMapGameController::drawMainWindow(float x, float y, float width, float height)
+{
+	if (isIdle()) return;
+
+	eGameState sequence = GameSequence[CurrentGameSequence];
 
 	if (isInverted())
 	{
 		ofPushMatrix();
-		ofTranslate(projRes.x, projRes.y);
+		ofTranslate(x + width / 2.0f, y + height / 2.0f);
 		ofRotate(180.0f);
-		scoreFont.drawString(ScoreText, 100, 100);
-		scoreFont.drawString(HiScoreText, 100, projRes.y - 100);
+		if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
+		{
+			if (matchResultImage.getWidth() > 0)
+				matchResultImage.draw(-width / 2.0f, -height / 2.0f, width, height);
+		}
+		fboProjWindow.draw(-width / 2.0f, -height / 2.0f, width, height);
 		ofPopMatrix();
 	}
 	else
 	{
-		scoreFont.drawString(ScoreText, 100, 100);
-		scoreFont.drawString(HiScoreText, 100, projRes.y - 100);
-	}
-}
-
-void CMapGameController::drawProjectorWindow()
-{
-	bool inv = isInverted();
-
-	if (ShowScore)
-	{
-		fboProjWindow.draw(0, 0);
-	}
-
-	eGameState sequence = GameSequence[CurrentGameSequence];
-	if (sequence == GAME_STATE_SHOWMAPNAME || sequence == GAME_STATE_SHOWSPLASHSCREEN ||
-		sequence == GAME_STATE_PLAYANDSHOWCOUNTDOWN || sequence == GAME_STATE_CHECKFORISLAND)
-	{
-		if (inv)
+		if (ShowScore || sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
 		{
-			ofPushMatrix();
-			ofTranslate(projRes.x, projRes.y);
-			ofRotate(180.0f);
-			fboProjWindow.draw(0, 0);
-			ofPopMatrix();
+			if (matchResultImage.getWidth() > 0)
+				matchResultImage.draw(x, y, width, height);
 		}
-		else
-		{
-			fboProjWindow.draw(0, 0);
-		}
-	}
-	else if (sequence == GAME_STATE_SHOWINTERMIDEATERESULT || sequence == GAME_STATE_SHOWFINALRESULT)
-	{
-		fboProjWindow.draw(0, 0);
+		fboProjWindow.draw(x, y, width, height);
 	}
 }
 
@@ -389,15 +401,10 @@ bool CMapGameController::CheckForIsland()
 	else
 	{
 		fboProjWindow.begin();
-
-		ofSetColor(255, 255, 255);
 		ofClear(255, 255, 255, 0);
-		
-		DrawMatchResultContourLines();
+		fboProjWindow.end();
 
 		CheckedForIsland = 0;
-
-		fboProjWindow.end();
 	}
 
 	return IslandFound;

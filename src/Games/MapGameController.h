@@ -45,7 +45,7 @@ class CMapGameController : public BaseGameController
 
 		void PlayAndShowCountDown(int resultTime);
 
-		void drawProjectorWindow();
+		virtual void drawMainWindow(float x, float y, float width, float height) override;
 
 		bool StartGame();
 
@@ -72,6 +72,10 @@ class CMapGameController : public BaseGameController
 
 		// Should debug files be dumped
 		void setDebug(bool flag);
+
+	protected:
+		virtual void drawScene() override;
+		virtual void drawHUD() override;
 
 	private:
 		// Get the actual depth image
