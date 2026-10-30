@@ -69,9 +69,9 @@ int main() {
 		if (ofDirectory::doesDirectoryExist(envDataPath, false)) {
 			string p = ofFilePath::addTrailingSlash(envDataPath);
 			ofSetDataPathRoot(p);
-			cout << "[Magic-Sand] OF_DATA_PATH configurado exitosamente: " << p << endl;
+			cout << "[Magic-Sand] OF_DATA_PATH successfully configured: " << p << endl;
 		} else {
-			cerr << "[Magic-Sand] Advertencia: OF_DATA_PATH no es un directorio accesible: " << envDataPath << endl;
+			cerr << "[Magic-Sand] Warning: OF_DATA_PATH is not an accessible directory: " << envDataPath << endl;
 		}
 	}
 

@@ -2,51 +2,53 @@
 set -e
 
 # ==============================================================================
-# Script de construcción para Magic Sand en Linux (Generador de AppImage)
+# Linux Build Script for Magic Sand (AppImage Generator)
 # ==============================================================================
-# Características:
-# 1. Compilación reproducible con Docker sobre Ubuntu 16.04 (soporte glibc 2.23+).
-# 2. Parche automático para Kinect v1 (K4W / Modelo 1473: FREENECT_DEVICE_CAMERA).
-# 3. Shim de compatibilidad Wayland / XWayland para evitar crash de GLFW 3.1.
-# 4. Gestión de datos mutables del usuario (~/Magic-Sand/data o ./data portable):
-#    Evita el sistema de solo lectura del AppImage (SquashFS), permitiendo
-#    leer y guardar calibraciones, XMLs de configuración, colormaps y puntajes.
-# 5. Configuración automática de permisos y memoria de buffer de Kinect
-#    en la primera ejecución (o mediante ./Magic-Sand-x86_64.AppImage --setup-kinect).
+# Features:
+# 1. Reproducible build using Docker on Ubuntu 16.04 (glibc 2.23+ runtime compatibility).
+# 2. Automated patch for Kinect v1 (K4W / Model 1473: FREENECT_DEVICE_CAMERA).
+# 3. Wayland / XWayland compatibility shim to prevent GLFW 3.1 crash.
+# 4. Mutable user data management (~/Magic-Sand/data or portable ./data):
+#    Bypasses read-only AppImage filesystem (SquashFS), allowing loading and
+#    saving calibrations, configuration XMLs, colormaps, and game scores.
+# 5. Automated system permission setup and USB buffer memory tuning for Kinect
+#    on first launch (or via ./Magic-Sand-x86_64.AppImage --setup-kinect).
+# 6. Strict hardware/driver library filtering for universal compatibility across
+#    any CPU (Intel/AMD) and GPU (NVIDIA proprietary, AMD Mesa, Intel Mesa).
 # ==============================================================================
 
-# Comprobaciones iniciales del entorno anfitrión
-echo "==> Verificando dependencias en el sistema anfitrión..."
+# Initial checks for host environment
+echo "==> Checking host dependencies..."
 if ! command -v docker > /dev/null 2>&1; then
-    echo "ERROR: Docker no está instalado en este equipo. Por favor instálalo para continuar."
+    echo "ERROR: Docker is not installed on this system. Please install it to proceed."
     exit 1
 fi
 
 if ! docker info > /dev/null 2>&1; then
-    echo "ERROR: El servicio de Docker no está en ejecución o el usuario no tiene permisos para acceder a él."
-    echo "Prueba iniciar el servicio (ej. 'sudo systemctl start docker') o añadir tu usuario al grupo 'docker'."
+    echo "ERROR: Docker service is not running or the current user lacks permissions to access it."
+    echo "Try starting the service (e.g., 'sudo systemctl start docker') or adding your user to the 'docker' group."
     exit 1
 fi
 
 if [ ! -f "setup_kinect_linux.sh" ]; then
-    echo "ERROR: No se encontró el archivo setup_kinect_linux.sh en el directorio actual."
+    echo "ERROR: File setup_kinect_linux.sh not found in the current directory."
     exit 1
 fi
 
-# Limpieza segura al salir
+# Clean up temporary build files on exit
 cleanup() {
     rm -f Dockerfile.build build_inside_docker.sh
 }
 trap cleanup EXIT INT TERM
 
-echo "==> [1/4] Generando Dockerfile.build..."
+echo "==> [1/4] Generating Dockerfile.build..."
 cat << 'DOCKER_EOF' > Dockerfile.build
 FROM ubuntu:16.04
 
-# Evitar prompts interactivos durante instalación de paquetes
+# Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependencias de compilación y empaquetado
+# Install compilation and packaging dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -60,7 +62,7 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# Descargar e instalar openFrameworks 0.9.3
+# Download and install openFrameworks 0.9.3
 WORKDIR /opt
 RUN wget -q https://openframeworks.cc/versions/v0.9.3/of_v0.9.3_linux64_release.tar.gz && \
     tar -xzf of_v0.9.3_linux64_release.tar.gz && \
@@ -74,18 +76,18 @@ RUN sudo ./install_dependencies.sh -y && \
 WORKDIR /opt/of/libs/openFrameworksCompiled/project
 RUN make -j$(nproc)
 
-# Parchear ofxKinect para seleccionar solo FREENECT_DEVICE_CAMERA
-# Kinect for Windows (K4W / Modelo 1473) falla si se solicitan motor o audio
+# Patch ofxKinect to open FREENECT_DEVICE_CAMERA only
+# Kinect for Windows (K4W / Model 1473) fails if motor or audio subdevices are requested
 RUN sed -i 's/FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA/FREENECT_DEVICE_CAMERA/g' /opt/of/addons/ofxKinect/src/ofxKinect.cpp
 
-# Descargar addons requeridos por Magic Sand
+# Download required addons for Magic Sand
 WORKDIR /opt/of/addons
 RUN git clone -b stable https://github.com/kylemcdonald/ofxCv.git && \
     git clone https://github.com/braitsch/ofxParagraph.git && \
     git clone https://github.com/thomwolf/ofxDatGui.git && \
     git clone https://github.com/braitsch/ofxModal.git
 
-# Descargar linuxdeploy y appimagetool
+# Download linuxdeploy and appimagetool
 WORKDIR /opt/appimage
 RUN wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage && \
     chmod +x linuxdeploy-x86_64.AppImage
@@ -97,48 +99,48 @@ WORKDIR /workspace
 CMD ["/workspace/build_inside_docker.sh"]
 DOCKER_EOF
 
-echo "==> [2/4] Generando script de compilación interna (build_inside_docker.sh)..."
+echo "==> [2/4] Generating container build script (build_inside_docker.sh)..."
 cat << 'DOCKER_EOF' > build_inside_docker.sh
 #!/bin/bash
 set -e
 
 export OF_ROOT=/opt/of
 
-# Limpiar objetos de compilaciones anteriores
+# Clean objects from previous compilations
 rm -rf obj
 
-# Asegurar parche de ofxKinect
+# Ensure ofxKinect camera-only patch is applied
 sed -i 's/FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA/FREENECT_DEVICE_CAMERA/g' /opt/of/addons/ofxKinect/src/ofxKinect.cpp
 
-echo "Compilando Magic-Sand..."
+echo "Compiling Magic-Sand..."
 make APPNAME=Magic-Sand -j$(nproc)
 
-# Asegurar nombre correcto de binario
+# Ensure consistent executable binary name
 if [ -f bin/workspace ] && [ ! -f bin/Magic-Sand ]; then
     mv bin/workspace bin/Magic-Sand
 fi
 
-echo "Estructurando AppDir..."
+echo "Structuring AppDir..."
 rm -rf AppDir
 mkdir -p AppDir/usr/bin
 mkdir -p AppDir/usr/share/applications
 mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 mkdir -p AppDir/usr/share/magic-sand/data
 
-# 1. Copiar ejecutable
+# 1. Copy executable binary
 cp bin/Magic-Sand AppDir/usr/bin/
 
-# 2. Copiar plantilla maestra de datos a usr/share/magic-sand/data y usr/bin/data
+# 2. Copy master data template to usr/share/magic-sand/data and usr/bin/data
 mkdir -p AppDir/usr/share/magic-sand/data
 cp -r bin/data/. AppDir/usr/share/magic-sand/data/
 mkdir -p AppDir/usr/bin/data
 cp -r bin/data/. AppDir/usr/bin/data/
 
-# 3. Incluir script de configuración de permisos del sistema para Kinect
+# 3. Include Kinect system permissions setup script
 cp /workspace/setup_kinect_linux.sh AppDir/usr/bin/setup_kinect_linux.sh
 chmod +x AppDir/usr/bin/setup_kinect_linux.sh
 
-# 4. Generar archivo desktop
+# 4. Generate desktop entry file
 cat << 'DESKTOP_EOF' > AppDir/usr/share/applications/magicsand.desktop
 [Desktop Entry]
 Name=Magic Sand
@@ -149,12 +151,12 @@ Categories=Game;Education;
 Terminal=false
 DESKTOP_EOF
 
-# 5. Extraer icono en alta resolución
+# 5. Extract high-resolution application icon
 convert /workspace/icon.ico[5] AppDir/usr/share/icons/hicolor/256x256/apps/magicsand.png 2>/dev/null || \
 convert /workspace/icon.ico[0] AppDir/usr/share/icons/hicolor/256x256/apps/magicsand.png
 
-# 6. Desplegar dependencias compartidas con linuxdeploy
-echo "Empaquetando bibliotecas compartidas con linuxdeploy..."
+# 6. Bundle shared libraries using linuxdeploy
+echo "Bundling shared libraries with linuxdeploy..."
 export APPIMAGE_EXTRACT_AND_RUN=1
 /opt/appimage/linuxdeploy-x86_64.AppImage \
     --appdir AppDir \
@@ -162,8 +164,46 @@ export APPIMAGE_EXTRACT_AND_RUN=1
     -i AppDir/usr/share/icons/hicolor/256x256/apps/magicsand.png \
     -e AppDir/usr/bin/Magic-Sand
 
-# 7. Compilar shim de compatibilidad para Wayland / XWayland
-echo "Compilando shim de compatibilidad XWayland..."
+# 6b. SYSTEM / HARDWARE LIBRARY PURGE
+# ============================================================================
+# These low-level libraries must NEVER be bundled inside an AppImage.
+# They must be provided by the host system to maintain compatibility with
+# the host kernel, GPU drivers (NVIDIA/AMD/Intel), and the USB subsystem.
+#
+# Reference: https://github.com/AppImage/pkg2appimage/blob/master/excludelist
+# ============================================================================
+echo "Purging system/hardware libraries that must come from the host..."
+
+# --- Hardware and kernel (USB communication, device monitoring) ---
+rm -f AppDir/usr/lib/libudev*           # Interface with systemd-udevd (netlink, must match host)
+rm -f AppDir/usr/lib/libusb*            # Direct USB kernel communication (must match host)
+rm -f AppDir/usr/lib/libsystemd*        # systemd IPC communication (must match host)
+# NOTE: Do NOT remove libselinux.so.1 because bundled libgio-2.0 requires it,
+# and distributions like Arch Linux / EndeavourOS do not include it by default.
+
+# --- GPU drivers (NEVER bundle — each vendor provides proprietary/Mesa drivers) ---
+rm -f AppDir/usr/lib/libGL.so*          # OpenGL dispatch (NVIDIA/Mesa)
+rm -f AppDir/usr/lib/libGLX.so*         # GLX dispatch
+rm -f AppDir/usr/lib/libGLX_*.so*       # GLX vendor-specific (nvidia, mesa)
+rm -f AppDir/usr/lib/libEGL.so*         # EGL dispatch
+rm -f AppDir/usr/lib/libEGL_*.so*       # EGL vendor-specific
+rm -f AppDir/usr/lib/libGLdispatch*     # GLVND dispatch layer
+rm -f AppDir/usr/lib/libdrm*            # Direct Rendering Manager
+rm -f AppDir/usr/lib/libgbm*            # Generic Buffer Management
+rm -f AppDir/usr/lib/libvulkan*         # Vulkan loader
+
+# --- Core glibc runtime (NEVER bundle) ---
+rm -f AppDir/usr/lib/libc.so*
+rm -f AppDir/usr/lib/libpthread*
+rm -f AppDir/usr/lib/libdl*
+rm -f AppDir/usr/lib/librt*
+rm -f AppDir/usr/lib/libm.so*
+rm -f AppDir/usr/lib/ld-linux*
+
+echo "✓ System library purge complete."
+
+# 7. Compile compatibility shim for Wayland / XWayland
+echo "Compiling XWayland compatibility shim..."
 cat << 'EOF' > /tmp/xwayland_fix.c
 #define _GNU_SOURCE
 #include <X11/Xlib.h>
@@ -192,13 +232,13 @@ EOF
 gcc -shared -fPIC -O2 -o AppDir/usr/lib/libxwayland_fix.so /tmp/xwayland_fix.c -ldl
 rm -f /tmp/xwayland_fix.c
 
-# 8. Generar AppRun personalizado con gestión de datos mutables y setup de Kinect
-echo "Generando script AppRun..."
+# 8. Generate custom AppRun launcher with mutable data handling and Kinect setup
+echo "Generating AppRun launcher script..."
 rm -f AppDir/AppRun
 cat << 'APPRUN_EOF' > AppDir/AppRun
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "${0}")")"
-# Si HERE resuelve dentro de un subdirectorio, apuntar a la raíz del AppDir
+# If HERE resolves inside a subdirectory, point to AppDir root
 if [ ! -d "$HERE/usr/bin" ]; then
     if [ -d "$HERE/../usr/bin" ]; then
         HERE="$(readlink -f "$HERE/..")"
@@ -208,17 +248,17 @@ if [ ! -d "$HERE/usr/bin" ]; then
 fi
 export APPDIR="$HERE"
 export PATH="$HERE/usr/bin:$PATH"
-export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-# Aplicar shim para sesiones Wayland / XWayland
+# Apply compatibility shim for Wayland / XWayland sessions
 if [ -f "$HERE/usr/lib/libxwayland_fix.so" ]; then
     export LD_PRELOAD="$HERE/usr/lib/libxwayland_fix.so${LD_PRELOAD:+:$LD_PRELOAD}"
 fi
 
 # ==============================================================================
-# A. Selección del directorio de datos mutables
+# A. Selection of Mutable User Data Directory
 # ==============================================================================
-# Determinar la ubicación del archivo ejecutable .AppImage en el sistema anfitrión
+# Determine the physical location of the .AppImage file on the host system
 if [ -n "$APPIMAGE" ]; then
     APPIMAGE_DIR="$(dirname "$(readlink -f "$APPIMAGE")")"
 elif [ -n "$OWD" ]; then
@@ -227,10 +267,10 @@ else
     APPIMAGE_DIR="$(dirname "$(readlink -f "$0")")"
 fi
 
-# Selección del directorio de datos:
-# Prioridad 1: Variable de entorno manual (MAGIC_SAND_DATA u OF_DATA_PATH)
-# Prioridad 2: Modo Portable (si existe previamente 'data' o 'Magic-Sand-Data' junto al AppImage o en el directorio actual)
-# Prioridad 3: Modo Estándar en Home (~/Magic-Sand/data)
+# Data directory selection priority:
+# Priority 1: Manual environment variable (MAGIC_SAND_DATA or OF_DATA_PATH)
+# Priority 2: Portable Mode (existing 'data' or 'Magic-Sand-Data' directory beside AppImage or in current dir)
+# Priority 3: Standard Mode in User Home (~/Magic-Sand/data)
 
 if [ -n "$MAGIC_SAND_DATA" ]; then
     DATA_ROOT="$MAGIC_SAND_DATA"
@@ -252,17 +292,17 @@ DATA_CONTAINER="$(dirname "$DATA_ROOT")"
 mkdir -p "$DATA_CONTAINER" 2>/dev/null || true
 
 # ==============================================================================
-# B. Soporte y configuración de Kinect v1 en el sistema anfitrión
+# B. Host Support and Configuration for Kinect v1
 # ==============================================================================
 setup_kinect_system() {
     local SCRIPT="$HERE/usr/bin/setup_kinect_linux.sh"
     if [ ! -f "$SCRIPT" ]; then
-        echo "! Script de configuración no encontrado: $SCRIPT"
+        echo "! Configuration script not found: $SCRIPT"
         return 1
     fi
 
     echo "=========================================================="
-    echo " Configurando permisos udev y memoria USB para Kinect v1"
+    echo " Configuring udev rules and USB memory for Kinect v1"
     echo "=========================================================="
 
     if [ "$EUID" -eq 0 ]; then
@@ -275,7 +315,7 @@ setup_kinect_system() {
         sudo "$SCRIPT"
         return $?
     elif command -v kdialog > /dev/null 2>&1; then
-        if kdialog --title "Magic Sand" --yesno "Se requiere configurar los permisos udev y memoria USB para el sensor Kinect en este sistema.\n\n¿Deseas aplicar la configuración ahora? (Requiere contraseña de administrador)"; then
+        if kdialog --title "Magic Sand" --yesno "System configuration required for Kinect sensor permissions and USB buffer memory.\n\nDo you want to apply this configuration now? (Requires administrator password)"; then
             if command -v pkexec > /dev/null 2>&1; then
                 pkexec "$SCRIPT"
             elif command -v sudo > /dev/null 2>&1; then
@@ -284,7 +324,7 @@ setup_kinect_system() {
         fi
         return $?
     elif command -v zenity > /dev/null 2>&1; then
-        if zenity --question --title="Magic Sand" --text="Se requiere configurar los permisos udev y memoria USB para el sensor Kinect en este sistema.\n\n¿Deseas aplicar la configuración ahora? (Requiere contraseña de administrador)"; then
+        if zenity --question --title="Magic Sand" --text="System configuration required for Kinect sensor permissions and USB buffer memory.\n\nDo you want to apply this configuration now? (Requires administrator password)"; then
             if command -v pkexec > /dev/null 2>&1; then
                 pkexec "$SCRIPT"
             elif command -v sudo > /dev/null 2>&1; then
@@ -293,43 +333,58 @@ setup_kinect_system() {
         fi
         return $?
     else
-        echo "! No se detectó terminal ni interfaz gráfica para solicitar elevación de permisos."
-        echo "  Por favor ejecuta manualmente: sudo $SCRIPT"
+        echo "! No terminal or GUI dialog detected to request permission elevation."
+        echo "  Please execute manually: sudo $SCRIPT"
         return 1
     fi
 }
 
-# Ejecutar configuración si se solicita por parámetro
+# Run setup if explicitly requested via parameter
 if [ "$1" = "--setup-kinect" ]; then
     setup_kinect_system
     exit $?
 fi
 
-# Comprobar si las reglas udev ya existen en el sistema anfitrión
+# Check if udev rules and adequate USB buffer memory exist on the host
 KINECT_RULES="/etc/udev/rules.d/51-kinect.rules"
 KINECT_PROMPT_FLAG="$DATA_CONTAINER/.kinect_prompted"
 
+# Read current USB buffer memory (unprivileged read from sysfs)
+CURRENT_USB_MB=$(cat /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null || echo "0")
+
+# Check if system setup is required:
+#   1. Missing Kinect udev rules
+#   2. USB buffer memory is less than 64 MB (insufficient for Kinect v1 dual streaming)
+NEEDS_SETUP=false
 if [ ! -f "$KINECT_RULES" ]; then
-    # Si no existen y no se ha preguntado previamente (o estamos en terminal)
+    echo "[Magic Sand] Kinect udev rules not detected."
+    NEEDS_SETUP=true
+fi
+if [ "$CURRENT_USB_MB" -lt 64 ] 2>/dev/null; then
+    echo "[Magic Sand] Current USB buffer: ${CURRENT_USB_MB} MB (64 MB required for Kinect)."
+    NEEDS_SETUP=true
+fi
+
+if [ "$NEEDS_SETUP" = true ]; then
     if [ ! -f "$KINECT_PROMPT_FLAG" ] || [ -t 0 ]; then
-        echo "Reglas de Kinect no detectadas en el sistema. Iniciando configuración..."
+        echo "[Magic Sand] Initiating Kinect system configuration..."
         setup_kinect_system || true
         touch "$KINECT_PROMPT_FLAG" 2>/dev/null || true
     fi
 fi
 
-# Ajustar memoria de buffer USB a 64 MB en tiempo de ejecución solo si tenemos permisos de escritura
+# Opportunistic runtime bump if write permissions to sysfs exist
 if [ -w /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
-    CURRENT_MB=$(cat /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null || echo "0")
-    if [ "$CURRENT_MB" -lt 64 ] 2>/dev/null; then
+    CURRENT_USB_MB=$(cat /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null || echo "0")
+    if [ "$CURRENT_USB_MB" -lt 64 ] 2>/dev/null; then
         echo 64 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null || true
     fi
 fi
 
 # ==============================================================================
-# C. Preparación y sincronización de datos mutables
+# C. Preparation and Synchronization of Mutable User Data
 # ==============================================================================
-# Asegurar directorios requeridos por el código
+# Ensure required directory tree
 mkdir -p "$DATA_ROOT/settings"
 mkdir -p "$DATA_ROOT/colorMaps"
 mkdir -p "$DATA_ROOT/mapGame/Scores"
@@ -338,16 +393,16 @@ mkdir -p "$DATA_ROOT/mapGame/DebugFiles"
 mkdir -p "$DATA_ROOT/boidGame/DebugFiles"
 mkdir -p "$DATA_ROOT/DebugFiles"
 
-# Ubicación de los datos maestros incluidos en el AppImage
+# Master template data bundled inside AppImage
 TEMPLATE_DATA="$HERE/usr/share/magic-sand/data"
 [ ! -d "$TEMPLATE_DATA" ] && TEMPLATE_DATA="$HERE/usr/bin/data"
 
-# Sincronizar archivos maestros si faltan, preservando modificaciones del usuario (-n: no-clobber)
+# Synchronize missing master data files, preserving user changes (-n: no-clobber)
 if [ -d "$TEMPLATE_DATA" ]; then
     cp -rn "$TEMPLATE_DATA/." "$DATA_ROOT/" 2>/dev/null || true
 fi
 
-# Garantizar individualmente que todos los archivos XML vitales existan y no estén vacíos
+# Guarantee that vital XML configuration files exist and are not empty
 for XML_REL in \
     "settings/calibration.xml" \
     "settings/kinectProjectorSettings.xml" \
@@ -363,52 +418,52 @@ do
     fi
 done
 
-# Garantizar permisos de lectura y escritura para el usuario
+# Ensure read and write permissions for the user
 chmod -R u+rwX "$DATA_ROOT" 2>/dev/null || true
 
-# Exportar variable de entorno de datos para openFrameworks
+# Export data path environment variable for openFrameworks
 export OF_DATA_PATH="$DATA_ROOT"
 
-echo "[Magic Sand] Carpeta de datos activa: $DATA_ROOT"
+echo "[Magic Sand] Active data directory: $DATA_ROOT"
 
-# Cambiar el directorio de trabajo al contenedor de data/ (para que rutas relativas 'data/...' sean válidas)
+# Change working directory to data container (so relative paths 'data/...' resolve)
 cd "$DATA_CONTAINER"
 
-# Ejecutar el binario de Magic Sand pasando todos los argumentos
+# Execute the Magic Sand binary forwarding all arguments
 exec "$HERE/usr/bin/Magic-Sand" "$@"
 APPRUN_EOF
 chmod +x AppDir/AppRun
 
-# 9. Crear el AppImage final con appimagetool
-echo "Empaquetando con appimagetool..."
+# 9. Create final AppImage with appimagetool
+echo "Packaging AppImage with appimagetool..."
 export APPIMAGE_EXTRACT_AND_RUN=1
 /opt/appimage/appimagetool-x86_64.AppImage AppDir Magic-Sand-x86_64.AppImage
 [ ! "Magic-Sand-x86_64.AppImage" -ef "/workspace/Magic-Sand-x86_64.AppImage" ] && mv Magic-Sand-x86_64.AppImage /workspace/ || true
 chmod 777 /workspace/Magic-Sand-x86_64.AppImage
 
-echo "==> AppImage creado exitosamente."
+echo "==> AppImage created successfully."
 DOCKER_EOF
 chmod +x build_inside_docker.sh
 
 if [ "$1" = "--rebuild" ] || ! docker image inspect magic-sand-appimage-builder > /dev/null 2>&1; then
-    echo "==> [3/4] Construyendo imagen de Docker..."
+    echo "==> [3/4] Building Docker image..."
     docker build -t magic-sand-appimage-builder -f Dockerfile.build .
 else
-    echo "==> [3/4] Imagen 'magic-sand-appimage-builder' encontrada localmente. Reutilizando (usa --rebuild para forzar)."
+    echo "==> [3/4] Docker image 'magic-sand-appimage-builder' found locally. Reusing (use --rebuild to force rebuild)."
 fi
 
-echo "==> [4/4] Ejecutando compilación y empaquetado dentro del contenedor Docker..."
+echo "==> [4/4] Running compilation and packaging inside Docker container..."
 docker run --rm -v "$(pwd):/workspace" --privileged magic-sand-appimage-builder
 
 echo "=============================================================================="
-echo " ¡Compilación completada exitosamente!"
-echo " El archivo generado es: Magic-Sand-x86_64.AppImage"
+echo " Build completed successfully!"
+echo " Output file: Magic-Sand-x86_64.AppImage"
 echo ""
-echo " Notas de uso:"
-echo " - Datos mutables: Se guardan y cargan en ~/Magic-Sand/data/"
-echo "   (o en una carpeta ./data junto al AppImage si se usa en modo portable)."
-echo " - Primera ejecución: Solicitará permisos de superusuario para instalar"
-echo "   las reglas udev de Kinect y memoria de buffer USB."
-echo " - También puedes configurar Kinect manualmente ejecutando:"
+echo " Usage notes:"
+echo " - Mutable data: Saved and loaded from ~/Magic-Sand/data/"
+echo "   (or ./data directory beside AppImage when portable mode is used)."
+echo " - First launch: Will request elevated permissions to configure"
+echo "   Kinect udev rules and USB buffer memory."
+echo " - Manual Kinect setup can also be triggered via:"
 echo "   ./Magic-Sand-x86_64.AppImage --setup-kinect"
 echo "=============================================================================="
