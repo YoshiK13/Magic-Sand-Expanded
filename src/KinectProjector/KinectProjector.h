@@ -154,6 +154,9 @@ public:
 	bool isCalibrated(){
         return projKinectCalibrated;
     }
+	bool isCalibrationFromXml() const {
+		return calibrationFromXml;
+	}
     bool isImageStabilized(){
         return imageStabilized;
     }
@@ -265,6 +268,7 @@ private:
 	float lastKinectOpenTry;
 	bool ROIcalibrated;
     bool projKinectCalibrated;
+    bool calibrationFromXml;
 //    bool ROIUpdated;
     bool projKinectCalibrationUpdated;
 	bool basePlaneComputed;

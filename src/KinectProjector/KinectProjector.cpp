@@ -29,6 +29,7 @@ using namespace ofxCSG;
 KinectProjector::KinectProjector(std::shared_ptr<ofAppBaseWindow> const& p)
 :ROIcalibrated(false),
 projKinectCalibrated(false),
+calibrationFromXml(false),
 //calibrating (false),
 basePlaneUpdated (false),
 basePlaneComputed(false),
@@ -115,6 +116,16 @@ void KinectProjector::setup(bool sdisplayGui)
     thresholdedImage.allocate(kinectRes.x, kinectRes.y);
     
 	kpt = new ofxKinectProjectorToolkit(projRes, kinectRes);
+
+	// Try to detect and load saved calibration from XML if available
+	if (kpt->loadCalibration("settings/calibration.xml"))
+	{
+		ofLogVerbose("KinectProjector") << "KinectProjector.setup(): Previous calibration loaded from XML";
+		kinectProjMatrix = kpt->getProjectionMatrix();
+		projKinectCalibrated = true;
+		projKinectCalibrationUpdated = true;
+		calibrationFromXml = true;
+	}
 
 	// finish kinectgrabber setup and start the grabber
     kinectgrabber.setupFramefilter(gradFieldResolution, maxOffset, kinectROI, spatialFiltering, followBigChanges, numAveragingSlots);
@@ -215,8 +226,16 @@ void KinectProjector::updateStatusGUI()
 
 	if (projKinectCalibrated)
 	{
-		StatusGUI->getLabel("Calibration Status")->setLabel("Projector/Kinect calibrated");
-		StatusGUI->getLabel("Calibration Status")->setLabelColor(ofColor(0, 255, 0));
+		if (calibrationFromXml)
+		{
+			StatusGUI->getLabel("Calibration Status")->setLabel("Projector/Kinect xml calibration");
+			StatusGUI->getLabel("Calibration Status")->setLabelColor(ofColor(255, 140, 0));
+		}
+		else
+		{
+			StatusGUI->getLabel("Calibration Status")->setLabel("Projector/Kinect calibrated");
+			StatusGUI->getLabel("Calibration Status")->setLabelColor(ofColor(0, 255, 0));
+		}
 	}
 	else
 	{
@@ -869,6 +888,7 @@ void KinectProjector::updateProjKinectAutoCalibration()
 				ofLogVerbose("KinectProjector") << "autoCalib(): ReprojectionError too big. Something wrong with projection matrix";
 				projKinectCalibrated = false; 
 				projKinectCalibrationUpdated = false;
+				calibrationFromXml = false;
 				applicationState = APPLICATION_STATE_SETUP;
 				calibrationText = "Calibration failed - reprojection error too big";
 				updateStatusGUI();
@@ -879,6 +899,7 @@ void KinectProjector::updateProjKinectAutoCalibration()
 			// updateROIFromCalibration(); // Compute the limite of the ROI according to the projected area 
             projKinectCalibrated = true; // Update states variables
             projKinectCalibrationUpdated = true;
+            calibrationFromXml = false;
 			applicationState = APPLICATION_STATE_SETUP;
 			calibrationText = "Calibration successful";
 
@@ -1509,6 +1530,7 @@ void KinectProjector::startApplication()
 			ofLogVerbose("KinectProjector") << "KinectProjector.setup(): kinectProjMatrix: " << kinectProjMatrix;
 			projKinectCalibrated = true;
 			projKinectCalibrationUpdated = true;
+			calibrationFromXml = true;
 			updateStatusGUI();
 		}
 		else

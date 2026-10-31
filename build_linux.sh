@@ -149,6 +149,7 @@ Icon=magicsand
 Type=Application
 Categories=Game;Education;
 Terminal=false
+PrefersNonDefaultGPU=true
 DESKTOP_EOF
 
 # 5. Extract high-resolution application icon
@@ -256,6 +257,27 @@ if [ -f "$HERE/usr/lib/libxwayland_fix.so" ]; then
 fi
 
 # ==============================================================================
+# Smart Hybrid GPU Offload Dispatcher
+# ==============================================================================
+# On dual-GPU laptops (NVIDIA Optimus / AMD Switchable), ensure high-performance
+# rendering on discrete GPU unless the user has explicitly defined another preference.
+if [ -z "$__NV_PRIME_RENDER_OFFLOAD" ] && [ -d /proc/driver/nvidia ]; then
+    if command -v __nv_prime_run >/dev/null 2>&1 || [ -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json ] || [ -f /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0 ] || [ -f /usr/lib64/libGLX_nvidia.so.0 ] || [ -f /usr/lib/libGLX_nvidia.so.0 ]; then
+        export __NV_PRIME_RENDER_OFFLOAD=1
+        export __GLX_VENDOR_LIBRARY_NAME=nvidia
+        export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json${VK_ICD_FILENAMES:+:$VK_ICD_FILENAMES}
+        echo "[Magic Sand] NVIDIA discrete GPU detected: PRIME render offload enabled."
+    fi
+elif [ -z "$DRI_PRIME" ] && command -v lspci >/dev/null 2>&1; then
+    if lspci 2>/dev/null | grep -i "VGA.*\[AMD/ATI\]" | grep -iq "Radeon"; then
+        if [ "$(lspci 2>/dev/null | grep -ic "VGA\|3D")" -gt 1 ]; then
+            export DRI_PRIME=1
+            echo "[Magic Sand] AMD hybrid graphics detected: DRI_PRIME=1 enabled."
+        fi
+    fi
+fi
+
+# ==============================================================================
 # A. Selection of Mutable User Data Directory
 # ==============================================================================
 # Determine the physical location of the .AppImage file on the host system
@@ -339,10 +361,27 @@ setup_kinect_system() {
     fi
 }
 
-# Run setup if explicitly requested via parameter
+# Run setup or uninstall if explicitly requested via parameter
 if [ "$1" = "--setup-kinect" ]; then
     setup_kinect_system
     exit $?
+fi
+
+if [ "$1" = "--uninstall-kinect" ]; then
+    UNINSTALL_SCRIPT="$HERE/usr/bin/setup_kinect_linux.sh"
+    if [ "$EUID" -eq 0 ]; then
+        "$UNINSTALL_SCRIPT" --uninstall
+        exit $?
+    elif command -v pkexec > /dev/null 2>&1; then
+        pkexec "$UNINSTALL_SCRIPT" --uninstall
+        exit $?
+    elif [ -t 0 ] && command -v sudo > /dev/null 2>&1; then
+        sudo "$UNINSTALL_SCRIPT" --uninstall
+        exit $?
+    else
+        echo "Please execute: sudo $UNINSTALL_SCRIPT --uninstall"
+        exit 1
+    fi
 fi
 
 # Check if udev rules and adequate USB buffer memory exist on the host
