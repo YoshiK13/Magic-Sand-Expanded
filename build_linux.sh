@@ -197,7 +197,8 @@ rm -f AppDir/usr/lib/libvulkan*         # Vulkan loader
 rm -f AppDir/usr/lib/libc.so*
 rm -f AppDir/usr/lib/libpthread*
 rm -f AppDir/usr/lib/libdl*
-rm -f AppDir/usr/lib/librt*
+# Note: Use specific patterns for librt so librtmp.so is NOT accidentally purged
+rm -f AppDir/usr/lib/librt.so* AppDir/usr/lib/librt-*.so
 rm -f AppDir/usr/lib/libm.so*
 rm -f AppDir/usr/lib/ld-linux*
 
@@ -249,12 +250,11 @@ if [ ! -d "$HERE/usr/bin" ]; then
 fi
 export APPDIR="$HERE"
 export PATH="$HERE/usr/bin:$PATH"
-export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-# Apply compatibility shim for Wayland / XWayland sessions
-if [ -f "$HERE/usr/lib/libxwayland_fix.so" ]; then
-    export LD_PRELOAD="$HERE/usr/lib/libxwayland_fix.so${LD_PRELOAD:+:$LD_PRELOAD}"
-fi
+# NOTE: LD_LIBRARY_PATH and LD_PRELOAD are intentionally NOT exported globally
+# during script setup to prevent bundled libraries (such as libselinux) from
+# conflicting with native host binaries (e.g., mkdir, cp, chmod, udevadm).
+# They are exported right before launching the Magic Sand binary.
 
 # ==============================================================================
 # Smart Hybrid GPU Offload Dispatcher
@@ -362,12 +362,12 @@ setup_kinect_system() {
 }
 
 # Run setup or uninstall if explicitly requested via parameter
-if [ "$1" = "--setup-kinect" ]; then
+if [ "$1" = "--setup" ] || [ "$1" = "--setup-kinect" ]; then
     setup_kinect_system
     exit $?
 fi
 
-if [ "$1" = "--uninstall-kinect" ]; then
+if [ "$1" = "--uninstall" ] || [ "$1" = "--uninstall-kinect" ]; then
     UNINSTALL_SCRIPT="$HERE/usr/bin/setup_kinect_linux.sh"
     if [ "$EUID" -eq 0 ]; then
         "$UNINSTALL_SCRIPT" --uninstall
@@ -468,6 +468,12 @@ echo "[Magic Sand] Active data directory: $DATA_ROOT"
 # Change working directory to data container (so relative paths 'data/...' resolve)
 cd "$DATA_CONTAINER"
 
+# Export runtime library paths and shims for the Magic Sand binary
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+if [ -f "$HERE/usr/lib/libxwayland_fix.so" ]; then
+    export LD_PRELOAD="$HERE/usr/lib/libxwayland_fix.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+
 # Execute the Magic Sand binary forwarding all arguments
 exec "$HERE/usr/bin/Magic-Sand" "$@"
 APPRUN_EOF
@@ -504,5 +510,5 @@ echo "   (or ./data directory beside AppImage when portable mode is used)."
 echo " - First launch: Will request elevated permissions to configure"
 echo "   Kinect udev rules and USB buffer memory."
 echo " - Manual Kinect setup can also be triggered via:"
-echo "   ./Magic-Sand-x86_64.AppImage --setup-kinect"
+echo "   ./Magic-Sand-x86_64.AppImage --setup (or --setup-kinect)"
 echo "=============================================================================="
