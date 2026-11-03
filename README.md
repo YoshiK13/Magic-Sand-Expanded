@@ -159,6 +159,7 @@ If the calibration is successful, the status window will update indicating that 
 ![Animation of the calibration steps to use the Magic Sandbox](./art/calibration.gif)
 
 ### Tips for a Nice Calibration:
+- **Lower projector brightness:** It is strongly recommended to calibrate with low or reduced brightness on the projector (or using Eco mode). Excessive brightness easily overexposes the projected chessboard patterns, causing the Kinect color camera to clip white squares and fail corner detection. You can return the projector to normal brightness once calibration is complete.
 - **Turn off or dim the room lighting:** Depending on ambient lighting and reflections, strong room light can wash out projected chessboard corners. Dimming room lights can ensure quick and accurate point detection.
 - **Use a perfectly flat, matte cover:** For the second calibration stage, ensure the board or cardboard is completely flat. If it bends or flexes, height calibration will be skewed. Furthermore, use a **matte** surface (non-glossy), as glossy materials cause specular reflection that blinds the Kinect infrared depth sensor.
 

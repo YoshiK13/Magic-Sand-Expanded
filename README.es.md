@@ -159,6 +159,7 @@ Si la calibración concluye con éxito, el panel de estado se actualizará indic
 ![Animación del procedimiento de calibración](./art/calibration.gif)
 
 ### Consejos para una Buena Calibración:
+- **Reducir el brillo del proyector:** Es muy recomendable calibrar con un nivel de brillo bajo en el proyector (o activando el modo Eco). Un brillo excesivo sobreexpone y deslumbra los patrones del tablero de ajedrez, saturando la cámara a color de la Kinect e impidiendo que reconozca con precisión las esquinas del ajedrez. Una vez calibrado el sistema, el brillo puede restablecerse a su nivel habitual.
 - **Apagar o atenuar la iluminación de la habitación:** Dependiendo de las lámparas o luz ambiental, una iluminación fuerte puede lavar las esquinas de los tableros de ajedrez proyectados. Atenuar la luz facilita una detección rápida y precisa de los puntos de calibración.
 - **Usar una cubierta perfectamente plana y mate:** Para la segunda fase de calibración, asegúrate de que el cartón o tabla sea totalmente plano y rígido (si se curva, el plano de altura quedará falseado). Además, utiliza una superficie con acabado **mate** (no brillante), ya que los materiales reflectantes causan rebotes que ciegan el sensor de profundidad infrarrojo de la Kinect.
 
